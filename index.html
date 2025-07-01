@@ -6,7 +6,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>哈雷 v1.0</title>
+    <title>哈雷线路选择 v1.0</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link href="https://cdn.staticfile.org/bootstrap/5.2.2/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.staticfile.org/bootstrap-icons/1.10.2/font/bootstrap-icons.min.css" rel="stylesheet">
 
@@ -22,6 +23,58 @@
             align-items: center;
             background-color: #f5f5f5;
         }
+        .line-card {
+            cursor: pointer;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            padding: 15px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .line-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        .line-card.active {
+            border-left: 4px solid #0d6efd;
+            background-color: #f8f9fa;
+        }
+        .ping-status {
+            float: right;
+            color: #6c757d;
+            font-size: 0.8em;
+        }
+        .ping-good {
+            color: #28a745;
+        }
+        .ping-medium {
+            color: #ffc107;
+        }
+            .ping-bad {
+                color: #dc3545;
+            }
+            #enterBtn {
+                background: linear-gradient(to right, #0d6efd, #0b5ed7);
+                border: none;
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            }
+            #enterBtn:hover {
+                background: linear-gradient(to right, #0b5ed7, #0a58ca);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            }
+            #enterBtn:active {
+                transform: translateY(0);
+                box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+            }
+            #enterBtn:disabled {
+                background: #6c757d;
+                cursor: not-allowed;
+                transform: none;
+                box-shadow: none;
+            }
     </style>
 
 </head>
@@ -36,86 +89,164 @@
         </div>
     </main>
     <iframe style=" width:100%; height:100%; display:none;"></iframe>
+    
+    <!-- 警告弹窗 -->
+    <div class="modal fade" id="alertModal" tabindex="-1" aria-hidden="true" style="display: none;">
+        <div class="modal-dialog modal-dialog-centered" style="max-width: 280px; margin: auto;">
+            <div class="modal-content" style="text-align: center;">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title text-danger fs-6">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        提示
+                    </h5>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="height: 120px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <i class="bi bi-info-circle-fill text-primary fs-4 mb-2"></i>
+                    <p class="mb-0 fs-6">请先选择一条线路</p>
+                </div>
+                <div class="modal-footer border-0 justify-content-center">
+                    <button type="button" class="btn btn-primary btn-sm px-3" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
     <script type="text/html" id="tpl-lines">
-        <form id="myform">
-            <h3 class="mb-2">选择可用线路</h3>
-            <select class="form-select mb-2" size="5" id="domainLines">
-            <option selected>请点击选择对应产品的可用线路</option>
+        <div id="myform">
+            <h3 class="mb-3">选择可用线路</h3>
+            <div class="lines-container">
                 {{each $data}}
-                <option value="{{$value.host}}">{{$value.title}}</option>
+                <div class="line-card" data-host="{{$value.host}}">
+                    {{$value.title}}
+                    <span class="ping-status">检测中...</span>
+                </div>
                 {{/each}}
-            </select>
-            <button class="w-100 btn btn-lg btn-primary" type="button" onclick="enter(this);">进 入 --></button>
-        </form>
+            </div>
+            <button class="w-100 btn btn-lg btn-primary mt-3" type="button" id="enterBtn">
+                <span class="me-2">进 入</span>
+                <i class="bi bi-arrow-right-circle"></i>
+            </button>
+        </div>
     </script>
+    <!-- 加载所需库 -->
     <script src="https://cdn.staticfile.org/art-template/4.13.2/lib/template-web.min.js"></script>
-    <script src="https://cdn.staticfile.org/zepto/1.2.0/zepto.min.js"></script>
+    <script src="https://cdn.staticfile.org/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdn.staticfile.org/bootstrap/5.2.2/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 初始化Bootstrap组件
+        $(document).ready(function() {
+            // 初始化工具提示和弹出框
+            $('[data-bs-toggle="tooltip"]').tooltip();
+            $('[data-bs-toggle="popover"]').popover();
+            
+            // 调试模态框初始化
+            console.log("Initializing modal...");
+            var alertModal = new bootstrap.Modal(document.getElementById('alertModal'));
+            console.log("Modal initialized:", alertModal);
+            
+            // 测试模态框显示
+            $('#testModalBtn').click(function() {
+                alertModal.show();
+            });
+        });
+    </script>
     <script type="text/javascript">
-        $(function () {
+        $(document).ready(function() {
             var selectLine = getCookie('selline');
-            if (selectLine.length > 0) {
-                $.ajax({
-                    type: "get",
-                    cache: false,
-                    url: selectLine + "/Api/ApiWeb/LoginCheckStateCb",
-                    dataType: "jsonp",
-                    jsonp: 'cb',
-                    success: function (data) {
-                        if (data.Code == 1) {
-                            $("main").hide();
-                            $("iframe").attr("src", selectLine + '/User').show();
-                        }
-                    }
-                });
-            }
             $.ajax({
                 type: "get",
                 cache: false,
                 url: "https://mclarenapp.github.io/SH_Lines/sh-hl_alist.txt",
-                dataType: "jsonp"
+                dataType: "jsonp",
+                success: function(data) {
+                    JsonpData(data);
+                    var selectLine = getCookie('selline');
+                    if (selectLine.length > 0) {
+                        $("main").hide();
+                        $("iframe").attr("src", selectLine).show();
+                    }
+                }
             });
         });
+        function pingHost(host, element) {
+            var start = new Date().getTime();
+            var img = new Image();
+            img.onload = function() {
+                var end = new Date().getTime();
+                var latency = end - start;
+                element.text("可用 " + latency + "ms").removeClass("ping-bad ping-medium").addClass("ping-good");
+            };
+            img.onerror = function() {
+                element.text("不可用").removeClass("ping-good ping-medium").addClass("ping-bad");
+                setTimeout(function() {
+                    pingHost(host, element);
+                }, 3000);
+            };
+            img.onerror = img.onabort = function() {
+                element.text("检测失败").removeClass("ping-good ping-bad").addClass("ping-medium");
+            };
+            img.src = host + "/favicon.ico?" + start;
+        }
+
         function JsonpData(data) {
             var html = $(template("tpl-lines", data.lines));
             $("#block-selLines").html(html[0]);
+            
+            // 渲染完成后对所有主机进行ping测试
+            $(".line-card").each(function() {
+                var host = $(this).data("host");
+                var pingElement = $(this).find(".ping-status");
+                pingHost(host, pingElement);
+            });
         }
-        function enter(obj) {
-            var domainLines = $("#domainLines");
-            var selectLine = domainLines.val();
-            addCookie('selline', selectLine, 240, "", "");
-            $("main").hide();
-            $("iframe").attr("src", selectLine).show();
-        }
-        function getCookie(objName) {
-            var value = "";
-            var arrStr = document.cookie.split("; ");
-            for (var i = 0; i < arrStr.length; i++) {
-                var temp = arrStr[i].split("=");
-                if (temp.length == 2) {
-                    if (temp[0] == objName) {
-                        value = unescape(temp[1]);
-                        break;
+        var selectedLine = "";
+        
+        $(document).on("click", ".line-card", function() {
+            $(".line-card").removeClass("active");
+            $(this).addClass("active");
+            selectedLine = $(this).data("host");
+        });
+
+            // 绑定进入按钮点击事件(带调试)
+            $(document).on('click', '#enterBtn', function() {
+                if (selectedLine) {
+                    addCookie('selline', selectedLine, 240, "", "");
+                    $("main").hide();
+                    $("iframe").attr("src", selectedLine).show();
+                } else {
+                    try {
+                        var modalEl = document.getElementById('alertModal');
+                        var modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                        modal.show();
+                    } catch (e) {
+                        alert("请先选择一条可用线路");
                     }
                 }
-            }
-            return value;
+            });
+            
+            // Test button for modal
+            $('#testModalBtn').click(function() {
+                var modal = new bootstrap.Modal(document.getElementById('alertModal'));
+                modal.show();
+            });
+        function getCookie(name) {
+            return document.cookie.split('; ').reduce((r, v) => {
+                const parts = v.split('=');
+                return parts[0] === name ? decodeURIComponent(parts[1]) : r;
+            }, '');
         }
-        function addCookie(objName, objValue, objHours, objDomain, objPath) {
-            var str = objName + "=" + escape(objValue);
-            if (objHours > 0) {
-                var date = new Date();
-                var ms = objHours * 3600 * 1000;
-                date.setTime(date.getTime() + ms);
-                str += "; expires=" + date.toGMTString();
+        
+        function addCookie(name, value, hours, domain, path) {
+            let cookie = `${name}=${encodeURIComponent(value)}`;
+            if (hours > 0) {
+                const date = new Date();
+                date.setTime(date.getTime() + hours * 3600 * 1000);
+                cookie += `; expires=${date.toUTCString()}`;
             }
-            if (objDomain != "") {
-                str += "; domain=" + objDomain;
-            }
-            if (objPath != "") {
-                str += "; path=" + objPath;
-            }
-            document.cookie = str;
+            if (domain) cookie += `; domain=${domain}`;
+            if (path) cookie += `; path=${path}`;
+            document.cookie = cookie;
         }
     </script>
 </body>
